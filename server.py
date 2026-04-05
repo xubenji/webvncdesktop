@@ -83,6 +83,14 @@ def api_me():
     return jsonify({"logged_in": bool(session.get("logged_in"))})
 
 
+@app.route("/api/auth_check")
+def api_auth_check():
+    """供 nginx auth_request 调用，200=已登录，401=未登录"""
+    if session.get("logged_in"):
+        return "", 200
+    return "", 401
+
+
 @app.route("/api/login", methods=["POST"])
 def api_login():
     body     = request.get_json(force=True) or {}
@@ -222,12 +230,11 @@ def api_server_info():
     except Exception:
         ip = "127.0.0.1"
     novnc_url = f"http://{ip}:{NOVNC_PORT}/vnc.html?autoconnect=true&password={VNC_PASS}"
-    term_url = f"http://{ip}:{TERM_PORT}"
+    term_url = f"http://{ip}:{WEB_PORT}/terminal/"
     return jsonify({
         "ip": ip,
         "novnc_port": NOVNC_PORT,
         "novnc_url": novnc_url,
-        "term_port": TERM_PORT,
         "term_url": term_url,
     })
 
@@ -246,10 +253,10 @@ def _auto_restore():
 
 def _ensure_ttyd():
     """确保 ttyd 在运行，未运行则启动"""
-    result = subprocess.run("pgrep -f 'ttyd.*login'", shell=True, capture_output=True)
+    result = subprocess.run(["pgrep", "-x", "ttyd"], capture_output=True)
     if result.returncode != 0:
         subprocess.Popen(
-            f"ttyd -p {TERM_PORT} -W -t fontSize=16 -t 'theme={{\"background\":\"#0f1117\"}}' login",
+            f"ttyd -i 127.0.0.1 -p {TERM_PORT} -W -t fontSize=16 -t 'theme={{\"background\":\"#0f1117\"}}' login",
             shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         print(f"[ttyd] 已启动常驻终端: port={TERM_PORT}")
@@ -266,4 +273,4 @@ if __name__ == "__main__":
         print(f"登录用户名: {WEBUI_USER}")
     else:
         print("警告: 凭据未配置，所有登录将被拒绝")
-    app.run(host="0.0.0.0", port=WEB_PORT, debug=False)
+    app.run(host="127.0.0.1", port=8081, debug=False)
