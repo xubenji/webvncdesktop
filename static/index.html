@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VNC Desktop Manager</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a;
+    --text: #e0e0e0; --muted: #888; --accent: #4f8cff;
+    --success: #2ecc71; --danger: #e74c3c; --warn: #f39c12;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    background: var(--bg); color: var(--text);
+    display: flex; justify-content: center; align-items: flex-start;
+    min-height: 100vh; padding-top: 40px;
+  }
+  .container { width: 100%; max-width: 960px; padding: 20px; }
+  .term-card { padding: 16px; }
+  .term-card h1 { margin-bottom: 12px; }
+  .term-iframe {
+    width: 100%; height: 500px; border: 1px solid var(--border);
+    border-radius: 8px; background: #0f1117;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 32px; margin-bottom: 16px;
+  }
+  h1 { font-size: 20px; margin-bottom: 24px; text-align: center; }
+  .status-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .status-row:last-child { border-bottom: none; }
+  .status-label { color: var(--muted); font-size: 13px; }
+  .status-value { font-size: 13px; font-weight: 600; }
+  .dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; margin-right: 6px; vertical-align: middle;
+  }
+  .dot-green { background: var(--success); }
+  .dot-red { background: var(--danger); }
+  .dot-yellow { background: var(--warn); }
+  .btn-group { display: flex; gap: 10px; margin-top: 24px; }
+  .btn {
+    flex: 1; padding: 12px; border: none; border-radius: 8px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: opacity .2s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-open { background: var(--accent); color: #fff; }
+  .btn-close { background: var(--danger); color: #fff; }
+  .btn-logout {
+    background: transparent; color: var(--muted); border: 1px solid var(--border);
+    margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px;
+    font-size: 13px; cursor: pointer;
+  }
+  /* 登录 */
+  .login-card { max-width: 360px; margin: 0 auto; }
+  .login-card h1 { margin-bottom: 20px; }
+  .input-group { margin-bottom: 14px; }
+  .input-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .input-group input {
+    width: 100%; padding: 10px 12px; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; font-size: 14px;
+  }
+  .btn-login {
+    width: 100%; padding: 12px; background: var(--accent); color: #fff;
+    border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .error-msg { color: var(--danger); font-size: 13px; margin-top: 10px; text-align: center; }
+  .toast {
+    position: fixed; top: 20px; right: 20px; padding: 12px 20px;
+    border-radius: 8px; font-size: 13px; color: #fff;
+    opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999;
+  }
+  .toast.show { opacity: 1; }
+  .toast-success { background: var(--success); }
+  .toast-error { background: var(--danger); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- 登录界面 -->
+  <div id="login-view" class="card login-card">
+    <h1>VNC Desktop Manager</h1>
+    <div class="input-group">
+      <label>用户名</label>
+      <input id="login-user" type="text" autocomplete="username">
+    </div>
+    <div class="input-group">
+      <label>密码</label>
+      <input id="login-pass" type="password" autocomplete="current-password">
+    </div>
+    <button class="btn-login" onclick="doLogin()">登录</button>
+    <div id="login-error" class="error-msg hidden"></div>
+  </div>
+
+  <!-- 主界面 -->
+  <div id="main-view" class="hidden">
+    <div class="card">
+      <h1>VNC Desktop Manager</h1>
+
+      <div class="status-row">
+        <span class="status-label">x11vnc 状态</span>
+        <span class="status-value" id="st-x11vnc">
+          <span class="dot dot-red"></span>未运行
+        </span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">端口状态</span>
+        <span class="status-value" id="st-port">
+          <span class="dot dot-red"></span>已屏蔽
+        </span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">自动关闭</span>
+        <span class="status-value" id="st-timer">无</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">noVNC 地址</span>
+        <span class="status-value" id="st-url" style="font-size:12px;word-break:break-all;">-</span>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-open" id="btn-open" onclick="vncOpen()">打开 VNC 桌面</button>
+        <button class="btn btn-close" id="btn-close" onclick="vncClose()">关闭</button>
+      </div>
+
+      <button class="btn-logout" onclick="doLogout()">退出登录</button>
+    </div>
+
+    <!-- 终端卡片（常驻 iframe） -->
+    <div class="card term-card">
+      <h1>Web Terminal (root)</h1>
+      <iframe id="term-iframe" class="term-iframe" src="about:blank"></iframe>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+let serverInfo = {};
+
+// ── Toast ──
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show toast-' + (type || 'success');
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ── 请求封装 ──
+async function api(url, opts) {
+  const res = await fetch(url, opts);
+  if (res.status === 401) { showLogin(); return null; }
+  return res.json();
+}
+
+// ── 登录 ──
+function showLogin() {
+  document.getElementById('login-view').classList.remove('hidden');
+  document.getElementById('main-view').classList.add('hidden');
+}
+function showMain() {
+  document.getElementById('login-view').classList.add('hidden');
+  document.getElementById('main-view').classList.remove('hidden');
+}
+
+async function doLogin() {
+  const user = document.getElementById('login-user').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  errEl.classList.add('hidden');
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: user, password: pass}),
+    });
+    const d = await res.json();
+    if (d.success) {
+      showMain();
+      refreshAll();
+    } else {
+      errEl.textContent = d.error || '登录失败';
+      errEl.classList.remove('hidden');
+    }
+  } catch(e) {
+    errEl.textContent = '请求失败: ' + e.message;
+    errEl.classList.remove('hidden');
+  }
+}
+
+async function doLogout() {
+  await fetch('/api/logout', {method:'POST'});
+  showLogin();
+}
+
+// ── 状态刷新 ──
+async function refreshStatus() {
+  const d = await api('/api/vnc_status');
+  if (!d) return;
+
+  const x11el = document.getElementById('st-x11vnc');
+  const portel = document.getElementById('st-port');
+  const timerel = document.getElementById('st-timer');
+
+  if (d.x11vnc_running) {
+    x11el.innerHTML = '<span class="dot dot-green"></span>运行中';
+  } else {
+    x11el.innerHTML = '<span class="dot dot-red"></span>未运行';
+  }
+
+  if (d.port_blocked) {
+    portel.innerHTML = '<span class="dot dot-red"></span>已屏蔽';
+  } else {
+    portel.innerHTML = '<span class="dot dot-green"></span>已放行';
+  }
+
+  timerel.textContent = d.auto_close_pending ? '等待中（15分钟）' : '无';
+}
+
+async function refreshServerInfo() {
+  const d = await api('/api/server_info');
+  if (!d) return;
+  serverInfo = d;
+  document.getElementById('st-url').textContent = d.novnc_url;
+  // 加载终端 iframe
+  const iframe = document.getElementById('term-iframe');
+  if (d.term_url && iframe.src !== d.term_url) {
+    iframe.src = d.term_url;
+  }
+}
+
+async function refreshAll() {
+  await Promise.all([refreshStatus(), refreshServerInfo()]);
+}
+
+// ── VNC 操作 ──
+async function vncOpen() {
+  document.getElementById('btn-open').disabled = true;
+  try {
+    const d = await api('/api/vnc_open', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+    });
+    if (!d) return;
+    if (d.success) {
+      showToast('VNC 端口放行中，2 秒后打开...', 'success');
+      setTimeout(() => {
+        if (serverInfo.novnc_url) {
+          window.open(serverInfo.novnc_url, '_blank');
+        }
+      }, 2000);
+      setTimeout(refreshStatus, 3000);
+    } else {
+      showToast(d.error || '放行失败', 'error');
+    }
+  } catch(e) {
+    showToast('请求失败: ' + e.message, 'error');
+  } finally {
+    document.getElementById('btn-open').disabled = false;
+  }
+}
+
+async function vncClose() {
+  document.getElementById('btn-close').disabled = true;
+  try {
+    const d = await api('/api/vnc_close', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+    });
+    if (!d) return;
+    if (d.success) {
+      showToast('VNC 端口已关闭', 'success');
+      setTimeout(refreshStatus, 1000);
+    } else {
+      showToast(d.error || '关闭失败', 'error');
+    }
+  } catch(e) {
+    showToast('请求失败: ' + e.message, 'error');
+  } finally {
+    document.getElementById('btn-close').disabled = false;
+  }
+}
+
+// ── Enter 键登录 ──
+document.getElementById('login-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ── 初始化 ──
+(async function init() {
+  const d = await fetch('/api/me').then(r => r.json());
+  if (d.logged_in) {
+    showMain();
+    refreshAll();
+  } else {
+    showLogin();
+  }
+})();
+
+// 定期刷新状态
+setInterval(refreshStatus, 15000);
+</script>
+</body>
+</html>

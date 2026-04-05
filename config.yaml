@@ -1,0 +1,8 @@
+vnc_user: "user1"
+vnc_pass: "unioncity2021.NJ"
+vnc_port: 5901
+novnc_port: 6901
+term_port: 7681
+display_id: 1
+webui_user: "benjixu"
+webui_pass: "unioncity2021.NJ"

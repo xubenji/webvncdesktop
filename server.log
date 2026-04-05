@@ -1,0 +1,23 @@
+[ttyd] 终端已在运行: port=7681
+VNC Desktop Manager -> http://0.0.0.0:8080
+登录用户名: benjixu
+ * Serving Flask app 'server'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://172.105.65.201:8080
+Press CTRL+C to quit
+172.56.199.117 - - [05/Apr/2026 21:23:04] "GET / HTTP/1.1" 200 -
+172.56.199.117 - - [05/Apr/2026 21:23:04] "GET /api/me HTTP/1.1" 200 -
+172.56.199.117 - - [05/Apr/2026 21:23:05] "GET /favicon.ico HTTP/1.1" 404 -
+172.56.199.117 - - [05/Apr/2026 21:23:14] "POST /api/login HTTP/1.1" 200 -
+172.56.199.117 - - [05/Apr/2026 21:23:14] "GET /api/server_info HTTP/1.1" 200 -
+172.56.199.117 - - [05/Apr/2026 21:23:14] "GET /api/vnc_status HTTP/1.1" 200 -
+172.56.199.117 - - [05/Apr/2026 21:23:19] "GET /api/vnc_status HTTP/1.1" 200 -
+172.56.199.117 - - [05/Apr/2026 21:23:35] "GET /api/vnc_status HTTP/1.1" 200 -
+172.56.199.117 - - [05/Apr/2026 21:23:50] "GET /api/vnc_status HTTP/1.1" 200 -
+172.56.199.117 - - [05/Apr/2026 21:24:05] "GET /api/vnc_status HTTP/1.1" 200 -
+172.56.199.117 - - [05/Apr/2026 21:24:20] "GET /api/vnc_status HTTP/1.1" 200 -
+172.56.199.117 - - [05/Apr/2026 21:24:35] "GET /api/vnc_status HTTP/1.1" 200 -
+172.56.199.117 - - [05/Apr/2026 21:25:06] "GET /api/vnc_status HTTP/1.1" 200 -
